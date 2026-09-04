@@ -1,0 +1,2 @@
+# Intelligent Timetable Scheduler
+# Python 3.10+ (stdlib only — no external dependencies required)
