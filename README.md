@@ -32,10 +32,19 @@ requirements.txt    # No external dependencies
 python3 -m unittest test_scheduler.py -v
 ```
 
-All 10 tests should pass:
+### Code Coverage (Section 6.2)
 
-| Test | System Behavior |
-|------|-----------------|
+```bash
+pip install -r requirements.txt
+coverage run -m unittest test_scheduler.py
+coverage report
+coverage html   # optional: generates htmlcov/index.html
+```
+
+All **15 tests** should pass:
+
+| Test | Requirement |
+|------|-------------|
 | `test_normal_behavior_successful_schedule` | SB01 |
 | `test_room_capacity_constraint` | SB02 & SB03 |
 | `test_lecturer_availability_constraint` | SB04 |
@@ -46,6 +55,11 @@ All 10 tests should pass:
 | `test_circular_prerequisite_detection` | SB09 |
 | `test_invalid_input_scenarios` | SB10 |
 | `test_empty_time_slots_validation` | SB10 |
+| `test_nfr1_execution_efficiency` | NFR1 |
+| `test_nfr3_deterministic_search` | NFR3 |
+| `test_missing_prerequisite_course_rejected` | Edge case |
+| `test_lecturer_clash_skipped_during_search` | Backtracking |
+| `test_topological_sort_detects_cycles` | Secondary cycle guard |
 
 ## Usage Example
 

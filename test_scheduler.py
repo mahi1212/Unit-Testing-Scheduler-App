@@ -1,5 +1,6 @@
 """Unit tests for the Intelligent Timetable Scheduler."""
 
+import time
 import unittest
 
 from scheduler import Course, IntelligentTimetableScheduler, Lecturer, Room
@@ -43,6 +44,18 @@ class TestIntelligentTimetableScheduler(unittest.TestCase):
 
         result = self.scheduler.schedule(courses, [rooms[1]], [lecturer], time_slots)
         self.assertEqual(result["C1"]["room_id"], "R2")
+
+        exact_match_rooms = [Room("R1", 30), Room("R2", 50)]
+        exact_course = Course("C3", "L1", 30)
+        exact_result = self.scheduler.schedule(
+            [exact_course], exact_match_rooms, [lecturer], time_slots
+        )
+        self.assertEqual(exact_result["C3"]["room_id"], "R1")
+        assigned_room = next(
+            room for room in exact_match_rooms
+            if room.room_id == exact_result["C3"]["room_id"]
+        )
+        self.assertEqual(assigned_room.capacity, exact_course.enrolled_students)
 
         oversized = Course("C2", "L1", 50)
         with self.assertRaises(ValueError):
@@ -155,6 +168,82 @@ class TestIntelligentTimetableScheduler(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             self.scheduler.schedule(courses, rooms, [lecturer], [])
+
+    def test_nfr1_execution_efficiency(self):
+        """NFR1: Schedule up to 100 courses within 2 seconds."""
+        course_count = 100
+        time_slots = [f"Day{i // 10} Slot{i % 10}" for i in range(course_count)]
+        rooms = [Room(f"R{i}", 50) for i in range(10)]
+        lecturers = [
+            Lecturer(f"L{i}", [time_slots[i]])
+            for i in range(course_count)
+        ]
+        courses = [
+            Course(f"C{i}", f"L{i}", 30)
+            for i in range(course_count)
+        ]
+
+        start = time.perf_counter()
+        result = self.scheduler.schedule(courses, rooms, lecturers, time_slots)
+        elapsed = time.perf_counter() - start
+
+        self.assertEqual(len(result), course_count)
+        self.assertLess(elapsed, 2.0, f"Scheduling took {elapsed:.3f}s, expected < 2s")
+
+    def test_nfr3_deterministic_search(self):
+        """NFR3: Identical inputs produce identical scheduling assignments."""
+        rooms = [Room("R1", 30), Room("R2", 50)]
+        lecturers = [
+            Lecturer("L1", ["Mon 09:00", "Mon 11:00"], preferred_slots=["Mon 11:00"]),
+            Lecturer("L2", ["Tue 09:00"]),
+        ]
+        courses = [
+            Course("C1", "L1", 20),
+            Course("C2", "L2", 40),
+        ]
+        time_slots = ["Mon 09:00", "Mon 11:00", "Tue 09:00"]
+
+        first = self.scheduler.schedule(courses, rooms, lecturers, time_slots)
+        second = self.scheduler.schedule(courses, rooms, lecturers, time_slots)
+
+        self.assertEqual(first, second)
+
+    def test_missing_prerequisite_course_rejected(self):
+        """Reject schedules when a listed prerequisite course is absent."""
+        rooms = [Room("R1", 50)]
+        lecturer = Lecturer("L1", ["Mon 09:00", "Mon 11:00"])
+        courses = [Course("C2", "L1", 20, prerequisites=["C1"])]
+        time_slots = ["Mon 09:00", "Mon 11:00"]
+
+        with self.assertRaises(ValueError):
+            self.scheduler.schedule(courses, rooms, [lecturer], time_slots)
+
+    def test_lecturer_clash_skipped_during_search(self):
+        """Backtracking skips lecturer clashes before finding a valid slot."""
+        rooms = [Room("R1", 50)]
+        lecturer = Lecturer("L1", ["Mon 09:00", "Mon 11:00"])
+        courses = [
+            Course("C1", "L1", 20),
+            Course("C2", "L1", 25),
+        ]
+        time_slots = ["Mon 09:00", "Mon 11:00"]
+
+        result = self.scheduler.schedule(courses, rooms, [lecturer], time_slots)
+
+        self.assertNotEqual(
+            result["C1"]["slot_index"],
+            result["C2"]["slot_index"],
+        )
+
+    def test_topological_sort_detects_cycles(self):
+        """Topological sort provides a secondary circular dependency guard."""
+        courses = [
+            Course("C1", "L1", 20, prerequisites=["C2"]),
+            Course("C2", "L1", 20, prerequisites=["C1"]),
+        ]
+
+        with self.assertRaises(ValueError):
+            self.scheduler._topological_sort(courses)
 
 
 if __name__ == "__main__":

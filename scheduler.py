@@ -94,7 +94,7 @@ class IntelligentTimetableScheduler:
         def dfs(node: str) -> None:
             if node in visited:
                 if visited[node] == "visiting":
-                    raise ValueError("Circular dependency detected")
+                    raise ValueError("Circular dependency")
                 return
             visited[node] = "visiting"
             for neighbor in adjacency.get(node, []):
@@ -125,8 +125,23 @@ class IntelligentTimetableScheduler:
                         queue.append(course.course_id)
 
         if len(sorted_ids) != len(courses):
-            raise ValueError("Circular dependency detected")
+            raise ValueError("Circular dependency")
         return [course_map[course_id] for course_id in sorted_ids]
+
+    def _suitable_rooms(
+        self, rooms: list[Room], enrolled_students: int
+    ) -> list[Room]:
+        """Return fitting rooms, preferring exact capacity matches (SB02)."""
+        suitable = [
+            room for room in rooms if room.capacity >= enrolled_students
+        ]
+        suitable.sort(
+            key=lambda room: (
+                0 if room.capacity == enrolled_students else 1,
+                room.capacity,
+            )
+        )
+        return suitable
 
     def _candidate_slots(
         self, lecturer: Lecturer, time_slots: list[str]
@@ -164,11 +179,7 @@ class IntelligentTimetableScheduler:
         course = courses[course_index]
         lecturer = lecturer_map[course.lecturer_id]
         candidate_slots = self._candidate_slots(lecturer, time_slots)
-        suitable_rooms = [
-            room
-            for room in rooms
-            if room.capacity >= course.enrolled_students
-        ]
+        suitable_rooms = self._suitable_rooms(rooms, course.enrolled_students)
 
         for slot_index, slot in candidate_slots:
             if not self._prerequisites_satisfied(course, slot_index, assignment):

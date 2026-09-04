@@ -1,2 +1,5 @@
 # Intelligent Timetable Scheduler
-# Python 3.10+ (stdlib only — no external dependencies required)
+# Python 3.10+ required
+
+# Development / testing (optional — stdlib unittest works without these)
+coverage>=7.0
